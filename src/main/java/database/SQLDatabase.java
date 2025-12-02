@@ -16,12 +16,12 @@ public class SQLDatabase extends Database {
 
     // personal liste erstellen 
     private List<Person> personal = new ArrayList<>();
-    
-    Connection con = null;
+    private List<Projekt> projekte = new ArrayList<>();
         
     //verbindung aufbauen
-    public void establishConnection() {
-        try {
+    public Connection establishConnection() {
+        Connection con = null;
+    	try {
             //Datenbanktreiber laden
             Class.forName("org.postgresql.Driver");
             con = DriverManager.getConnection("jdbc:postgresql://localhost:5432/Projekt", "postgres", "geheim");
@@ -30,30 +30,53 @@ public class SQLDatabase extends Database {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return con;
     }
 
     // auffüllen der personal liste aus der datenbank
     public List<Person> loadPersonal() {
-        personal.clear();
+    	Connection con = establishConnection();
+    	personal.clear();
         String sql = "SELECT * FROM personen";
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                Person p = new Person(rs.getInt("nr"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
+                Person p = new Person(rs.getInt("Personennummer"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
                 personal.add(p);
             }
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return personal;
     }
+    
+    
+    public List<Projekt> loadProject(){
+    	Connection con = establishConnection();
+    	projekte.clear();
+    	String sql = "SELECT * FROM projekt";
+    	try (Statement stmt = con.createStatement();
+    			ResultSet rs = stmt.executeQuery(sql)){
+    		while (rs.next()) {
+    			Projekt pr = new Projekt(rs.getInt("projektnummer"), rs.getString("name"), rs.getString("kunde"));
+    			projekte.add(pr);
+    		}
+    		con.close();
+    	}catch (SQLException e){
+    		e.printStackTrace();
+    	}
+    	return projekte;
+    }
+    
 
     @Override
 	public List<Person> getPersonal(String sort, String filter) {
 		//neue liste wird angelegt zum speichern der gefilterten personen
 		List<Person> newList;
-		//überprüfung ob ein filter gesetzt ist
+		// überprüfung ob ein filter gesetzt ist
 		if (filter != null && !filter.isEmpty()) {
+            Connection con = establishConnection();
 			newList = new ArrayList<>();
             // filterung der personen nach nachnamen
             try (PreparedStatement ps = con.prepareStatement("SELECT * FROM personen WHERE nachname LIKE ?")) {
@@ -64,15 +87,18 @@ public class SQLDatabase extends Database {
                         newList.add(p);
                     }
                 }
+                con.close();
             } catch (SQLException e) {
                 e.printStackTrace();
             }
-        } else {
-			newList = new ArrayList<>(personal);
+        } else {   
+			newList = new ArrayList<>(loadPersonal());
 		}
+
 		if (sort != null) {
 			newList.sort(new PersonComparator(sort));
 		}
+        
 		return newList;
 	}
 
