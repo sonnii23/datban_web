@@ -19,6 +19,8 @@ public class SQLDatabase extends Database {
     
     Connection con = null;
     
+    lo
+    
     //verbindung aufbauen
     public void establishConnection() {
         try {
@@ -74,7 +76,21 @@ public class SQLDatabase extends Database {
 	
     @Override
 	public List<Projekt> getProjekte(String sort) {
-            return super.getProjekte(sort);
+        List<Projekt> newList = new ArrayList<>();
+        try{
+            PreparedStatement ps = con.prepareStatement("SELECT * FROM projekte");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()){
+                Projekt p = new Projekt(rs.getInt("nr"), rs.getString("name"), rs.getString("kunde"));
+                newList.add(p);
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        if (sort != null){
+            newList.sort(new ProjektComparator(sort));
+        }
+        return newList;
 	}
 	
     @Override
