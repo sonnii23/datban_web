@@ -37,7 +37,7 @@ public class SQLDatabase extends Database {
     public List<Person> loadPersonal() {
     	Connection con = establishConnection();
     	personal.clear();
-        String sql = "SELECT * FROM personen";
+        String sql = "SELECT * FROM person";
         try (Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -79,11 +79,11 @@ public class SQLDatabase extends Database {
             Connection con = establishConnection();
 			newList = new ArrayList<>();
             // filterung der personen nach nachnamen
-            try (PreparedStatement ps = con.prepareStatement("SELECT * FROM personen WHERE nachname LIKE ?")) {
+            try (PreparedStatement ps = con.prepareStatement("SELECT * FROM person WHERE nachname LIKE ?")) {
                 ps.setString(1, "%" + filter + "%");
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        Person p = new Person(rs.getInt("nr"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
+                        Person p = new Person(rs.getInt("personennummer"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
                         newList.add(p);
                     }
                 }
@@ -106,12 +106,14 @@ public class SQLDatabase extends Database {
     @Override
 	public List<Projekt> getProjekte(String sort) {
         List<Projekt> newList = new ArrayList<>();
-        String sql = "SELECT * FROM projekte";
+        String sql = "SELECT * FROM projekt";
+    	Connection con = establishConnection();
         try (PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()){
-                Projekt p = new Projekt(rs.getInt("nr"), rs.getString("name"), rs.getString("kunde"));
+                Projekt p = new Projekt(rs.getInt("projektnummer"), rs.getString("name"), rs.getString("kunde"));
                 newList.add(p);
+                con.close();
             }
         } catch (SQLException e){
             e.printStackTrace();
@@ -126,19 +128,21 @@ public class SQLDatabase extends Database {
     @Override
     public void deletePerson(int nr) {
         // remove person from database and from local list
-        String sql1 = "DELETE FROM projektmitarbeit WHERE person_nr = ?"; // if such table/column exists
-        String sql2 = "DELETE FROM personen WHERE nr = ?";
+        String sql1 = "DELETE FROM projektmitarbeit WHERE personennummer = ?"; // if such table/column exists
+        String sql2 = "DELETE FROM person WHERE personennummer = ?";
+        Connection con = establishConnection();
         try (PreparedStatement p1 = con.prepareStatement(sql1)) {
             p1.setInt(1, nr);
             p1.executeUpdate();
+            con.close();
         } catch (SQLException e) {
-            // ignore if table/column doesn't exist or other errors
-            // fall back to deleting person row only
+            e.printStackTrace();
         }
 
         try (PreparedStatement p2 = con.prepareStatement(sql2)) {
             p2.setInt(1, nr);
             p2.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -153,13 +157,16 @@ public class SQLDatabase extends Database {
 	
     @Override
     public void deleteProjekt(int nr) {
+        Connection con = establishConnection();
+
         // Remove project assignments, then project
-        String sql1 = "DELETE FROM projektmitarbeit WHERE projekt_nr = ?"; // if such table/column exists
-        String sql2 = "DELETE FROM projekte WHERE nr = ?";
+        String sql1 = "DELETE FROM projektmitarbeit WHERE projektnummer = ?"; // if such table/column exists
+        String sql2 = "DELETE FROM projekt WHERE projektnummer = ?";
 
         try (PreparedStatement p1 = con.prepareStatement(sql1)) {
             p1.setInt(1, nr);
             p1.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             // ignore if no mapping table exists
         }
@@ -167,6 +174,7 @@ public class SQLDatabase extends Database {
         try (PreparedStatement p2 = con.prepareStatement(sql2)) {
             p2.setInt(1, nr);
             p2.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -175,14 +183,16 @@ public class SQLDatabase extends Database {
         
     @Override
     public Person getPerson(int nr) {
-        String sql = "SELECT nr, vorname, nachname, position FROM personen WHERE nr = ?";
+        Connection con = establishConnection();
+        String sql = "SELECT personennummer, vorname, nachname, position FROM person WHERE personennummer = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, nr);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Person(rs.getInt("nr"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
+                    return new Person(rs.getInt("personennummer"), rs.getString("vorname"), rs.getString("nachname"), rs.getString("position"));
                 }
             }
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -191,14 +201,16 @@ public class SQLDatabase extends Database {
 	
     @Override
     public Projekt getProjekt(int nr) {
-        String sql = "SELECT nr, name, kunde FROM projekte WHERE nr = ?";
+        Connection con = establishConnection();
+        String sql = "SELECT projektnummer, name, kunde FROM projekt WHERE projektnummer = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, nr);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Projekt(rs.getInt("nr"), rs.getString("name"), rs.getString("kunde"));
+                    return new Projekt(rs.getInt("projektnummer"), rs.getString("name"), rs.getString("kunde"));
                 }
             }
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -207,11 +219,13 @@ public class SQLDatabase extends Database {
         
     @Override
     public int getMaxNrPerson() {
-        String sql = "SELECT MAX(nr) as maxnr FROM personen";
+        Connection con = establishConnection();
+        String sql = "SELECT MAX(personennummer) as maxnr FROM person";
         try (Statement s = con.createStatement(); ResultSet rs = s.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getInt("maxnr");
             }
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -221,7 +235,8 @@ public class SQLDatabase extends Database {
         
     @Override
     public int getMaxNrProjekt() {
-        String sql = "SELECT MAX(nr) as maxnr FROM projekte";
+        Connection con = establishConnection();
+        String sql = "SELECT MAX(projektnummer) as maxnr FROM projekt";
         try (Statement s = con.createStatement(); ResultSet rs = s.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getInt("maxnr");
@@ -234,13 +249,15 @@ public class SQLDatabase extends Database {
 	
     @Override
     public void insertPerson(Person p) {
-        String sql = "INSERT INTO personen (nr, vorname, nachname, position) VALUES (?, ?, ?, ?)";
+        Connection con = establishConnection();
+        String sql = "INSERT INTO person (personennummer, vorname, nachname, position) VALUES (?, ?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, p.getNr());
             ps.setString(2, p.getVorname());
             ps.setString(3, p.getNachname());
             ps.setString(4, p.getPosition());
             ps.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -250,12 +267,14 @@ public class SQLDatabase extends Database {
 	
     @Override
     public void insertProjekt(Projekt p) {
-        String sql = "INSERT INTO projekte (nr, name, kunde) VALUES (?, ?, ?)";
+        Connection con = establishConnection();
+        String sql = "INSERT INTO projekt (projektnummer, name, kunde) VALUES (?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, p.getNr());
             ps.setString(2, p.getName());
             ps.setString(3, p.getKunde());
             ps.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -263,13 +282,15 @@ public class SQLDatabase extends Database {
         
     @Override
     public void updatePerson(Person p) {
-        String sql = "UPDATE personen SET vorname = ?, nachname = ?, position = ? WHERE nr = ?";
+        Connection con = establishConnection();
+        String sql = "UPDATE person SET vorname = ?, nachname = ?, position = ? WHERE personennummer = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, p.getVorname());
             ps.setString(2, p.getNachname());
             ps.setString(3, p.getPosition());
             ps.setInt(4, p.getNr());
             ps.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -279,12 +300,14 @@ public class SQLDatabase extends Database {
 	
     @Override
     public void updateProjekt(Projekt p) {
-        String sql = "UPDATE projekte SET name = ?, kunde = ? WHERE nr = ?";
+        Connection con = establishConnection();
+        String sql = "UPDATE projekt SET name = ?, kunde = ? WHERE projektnummer = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, p.getName());
             ps.setString(2, p.getKunde());
             ps.setInt(3, p.getNr());
             ps.executeUpdate();
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
