@@ -82,7 +82,6 @@ public class SQLDatabase extends Database {
         try(Statement stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery(sql)){
             while (rs.next()){
-                // Annahme: es gibt Spalten personennummer, projektnummer, aufgabe
                 Person p = getPerson(rs.getInt("personennummer"));
                 Projekt pr = getProjekt(rs.getInt("projektnummer"));
                 String aufgabe = rs.getString("aufgabe");
@@ -94,6 +93,8 @@ public class SQLDatabase extends Database {
             con.close();
         } catch (SQLException e){
             e.printStackTrace();
+        }
+        return projektmitarbeitList;
     }
 
 
