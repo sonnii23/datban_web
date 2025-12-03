@@ -9,14 +9,20 @@ import model.PersonComparator;
 import model.Projekt;
 import model.ProjektComparator;
 // Projektmitarbeit isn't referenced in this SQL-backed class (kept in Database)
+import model.Projektmitarbeit;
 
 import java.sql.*;
 
 public class SQLDatabase extends Database {
 
-    // personal liste erstellen 
+    // flag für ersten start
+    private boolean isFirstStart = true;
+
+    // Listen erstellen 
     private List<Person> personal = new ArrayList<>();
     private List<Projekt> projekte = new ArrayList<>();
+    private List<Projektmitarbeit> projektmitarbeitList = new ArrayList<>();
+
         
     //verbindung aufbauen
     public Connection establishConnection() {
@@ -68,7 +74,28 @@ public class SQLDatabase extends Database {
     	}
     	return projekte;
     }
-    
+
+    public List<Projektmitarbeit> loadProjectPartic(){
+        Connection con = establishConnection();
+        projektmitarbeitList.clear();
+        String sql = "SELECT * FROM projektmitarbeit";
+        try(Statement stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)){
+            while (rs.next()){
+                // Annahme: es gibt Spalten personennummer, projektnummer, aufgabe
+                Person p = getPerson(rs.getInt("personennummer"));
+                Projekt pr = getProjekt(rs.getInt("projektnummer"));
+                String aufgabe = rs.getString("aufgabe");
+                if (p != null && pr != null){
+                    Projektmitarbeit pm = new Projektmitarbeit(pr, aufgabe);
+                    projektmitarbeitList.add(pm);
+                }
+            }
+            con.close();
+        } catch (SQLException e){
+            e.printStackTrace();
+    }
+
 
     @Override
 	public List<Person> getPersonal(String sort, String filter) {
